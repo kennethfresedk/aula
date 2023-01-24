@@ -176,6 +176,21 @@ class Client:
                _LOGGER.warn("Got the following reply when trying to fetch calendars: "+str(res.text))
         # End of calendar
 
+        # MU Opgaver:
+        if len(self.widgets) == 0:
+            self.get_widgets()
+        if "0030" in self.widgets:
+            _LOGGER.debug("Proceeding with MU Opgaver...")
+            now = datetime.datetime.now() + datetime.timedelta(weeks=1)
+            thisweek = datetime.datetime.now().strftime('%Y-W%W')
+            muopgavertoken = self.get_token("0030")
+            childUserIds = ",".join(self._childuserids)
+            # Fix multiple gets:
+            guardian = self._session.get(self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()["data"]["userId"]
+            muopgaverpayload = '/aula/opgaveliste?placement=narrow&sessionUUID='+guardian+'&userProfile=guardian&currentWeekNumber='+thisweek+'&childFilter='+childUserIds
+            muopgaver = requests.get(MIN_UDDANNELSE_API + muopgaverpayload, headers={"Authorization": muopgavertoken, "accept":"application/json"}, verify=True)
+            _LOGGER.debug("Got the following response from MU opgaver: "+str(muopgaver.text))
+
         # Ugeplaner:
         if self._ugeplan == True:
             guardian = self._session.get(self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()["data"]["userId"]

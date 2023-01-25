@@ -146,6 +146,11 @@ class AulaSensor(Entity):
                         attributes[attribute] = datetime.strptime(daily_info[attribute], "%H:%M:%S").strftime("%H:%M")
                     except:
                         attributes[attribute] = daily_info[attribute]
+        # if self._child["name"].split()[0] in self._client.muopgaver:
+        #     _LOGGER.debug("Found MU Opgaver for "+str(self._child["name"].split()[0]))
+        #     for opgave in self._client.muopgaver_json["opgaver"]:
+        #         if opgave["kuvertnavn"].split()[0] == self._child["name"].split()[0]:
+        #             _LOGGER.debug("Title: "+str(opgave["title"]))
         return attributes
 
     @property

@@ -19,6 +19,8 @@ class Client:
     ugepnext_attr = {}
     widgets = {}
     tokens = {}
+    muopgaver = {}
+    muopgaver_attr = {}
 
     def __init__(self, username, password, schoolschedule, ugeplan):
         self._username = username
@@ -152,10 +154,26 @@ class Client:
             _LOGGER.debug("tid "+str(threadid))
             threadres = self._session.get(self.apiurl + "?method=messaging.getMessagesForThread&threadId="+str(threadid)+"&page=0", verify=True)
             for message in threadres.json()["data"]["messages"]:
-                self.message["text"] = message["text"]["html"]
-                self.message["sender"] = message["sender"]["fullName"]
+                if message["messageType"] == "Message":
+                    try:
+                        self.message["text"] = message["text"]["html"]
+                    except:
+                        try:
+                            self.message["text"] = message["text"]
+                        except:
+                            self.message["text"] = "intet indhold..."
+                            _LOGGER.warning("There is an unread message, but we cannot get the text.")
+                    try:
+                        self.message["sender"] = message["sender"]["fullName"]
+                    except:
+                        self.message["sender"] = "Ukendt afsender"
+                    break
+                try:
+                    self.message["subject"] = threadres.json()["data"]["subject"]
+                except:
+                    self.message["subject"] = ""
                 break
-            self.message["subject"] = threadres.json()["data"]["subject"]
+            _LOGGER.debug("Full dump of Aula messages: "+str(threadres.text))
 
         # Calendar:
         if self._schoolschedule == True:
@@ -177,19 +195,52 @@ class Client:
         # End of calendar
 
         # MU Opgaver:
+        mock_muopgaver = 0
         if len(self.widgets) == 0:
             self.get_widgets()
-        if "0030" in self.widgets:
+        if "0030" in self.widgets or mock_muopgaver == 1:
             _LOGGER.debug("Proceeding with MU Opgaver...")
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
             thisweek = datetime.datetime.now().strftime('%Y-W%W')
-            muopgavertoken = self.get_token("0030")
             childUserIds = ",".join(self._childuserids)
             # Fix multiple gets:
             guardian = self._session.get(self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()["data"]["userId"]
+            #
             muopgaverpayload = '/aula/opgaveliste?placement=narrow&sessionUUID='+guardian+'&userProfile=guardian&currentWeekNumber='+thisweek+'&childFilter='+childUserIds
-            muopgaver = requests.get(MIN_UDDANNELSE_API + muopgaverpayload, headers={"Authorization": muopgavertoken, "accept":"application/json"}, verify=True)
-            _LOGGER.debug("Got the following response from MU opgaver: "+str(muopgaver.text))
+            if mock_muopgaver == 1:
+                muopgaver = '{"opgaver":[{"id":"75c55f039b5943069dcb9afe260dc5fd","opgaveType":"SimpelLektie","title":"HUSK BIBLIOTEKSBØGER","afleveringsdato":"\/Date(1674601200000-0000)\/","ugedag":"Onsdag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjQ4NjM4NCUzZm9wZ2F2ZSUzZDc1YzU1ZjAzLTliNTktNDMwNi05ZGNiLTlhZmUyNjBkYzVmZCUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1502989,"navn":"Dansk 3C","fagId":1331,"fagNavn":"Dansk"}],"unilogin":"neya0020","kuvertnavn":"Emilie Efternavnsen","placering":"Nederst"},{"id":"0bb0c135e00040d0a691aff57afd69f5","opgaveType":"SimpelLektie","title":"Kreativ værksted","afleveringsdato":"\/Date(1674428400000-0000)\/","ugedag":"Mandag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjg5MDM3NSUzZm9wZ2F2ZSUzZDBiYjBjMTM1LWUwMDAtNDBkMC1hNjkxLWFmZjU3YWZkNjlmNSUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1642440,"navn":"SFO 0. årgang","fagId":4342,"fagNavn":"SFO"}],"unilogin":"noah217a","kuvertnavn":"Noah Amdi Kruse Bødker","placering":"Nederst"},{"id":"85f7ba201e6f47489153df5b4533248d","opgaveType":"SimpelLektie","title":"kreativ værksted","afleveringsdato":"\/Date(1674514800000-0000)\/","ugedag":"Tirsdag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjg5MDM3NSUzZm9wZ2F2ZSUzZDg1ZjdiYTIwLTFlNmYtNDc0OC05MTUzLWRmNWI0NTMzMjQ4ZCUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1642440,"navn":"SFO 0. årgang","fagId":4342,"fagNavn":"SFO"}],"unilogin":"noah217a","kuvertnavn":"Noah Amdi Kruse Bødker","placering":"Nederst"},{"id":"aea080c2954446a19fe82221bc5f38c4","opgaveType":"SimpelLektie","title":"kreativ værksted","afleveringsdato":"\/Date(1674601200000-0000)\/","ugedag":"Onsdag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjg5MDM3NSUzZm9wZ2F2ZSUzZGFlYTA4MGMyLTk1NDQtNDZhMS05ZmU4LTIyMjFiYzVmMzhjNCUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1642440,"navn":"SFO 0. årgang","fagId":4342,"fagNavn":"SFO"}],"unilogin":"noah217a","kuvertnavn":"Noah Amdi Kruse Bødker","placering":"Nederst"},{"id":"0ca8b8bf6a574df6a9a3b88fc573a036","opgaveType":"SimpelLektie","title":"Vi bager","afleveringsdato":"\/Date(1674687600000-0000)\/","ugedag":"Torsdag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjg5MDM3NSUzZm9wZ2F2ZSUzZDBjYThiOGJmLTZhNTctNGRmNi1hOWEzLWI4OGZjNTczYTAzNiUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1642440,"navn":"SFO 0. årgang","fagId":4342,"fagNavn":"SFO"}],"unilogin":"noah217a","kuvertnavn":"Noah Amdi Kruse Bødker","placering":"Nederst"},{"id":"18e81c198e46425abefe68c3e6cb9fba","opgaveType":"SimpelLektie","title":"Vi hygger på stuen","afleveringsdato":"\/Date(1674774000000-0000)\/","ugedag":"Fredag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjg5MDM3NSUzZm9wZ2F2ZSUzZDE4ZTgxYzE5LThlNDYtNDI1YS1iZWZlLTY4YzNlNmNiOWZiYSUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1642440,"navn":"SFO 0. årgang","fagId":4342,"fagNavn":"SFO"}],"unilogin":"noah217a","kuvertnavn":"Noah Amdi Kruse Bødker","placering":"Nederst"},{"id":"09437f531b7f4d3cb9591e1c5439f8c7","opgaveType":"SimpelLektie","title":"LEKTIE:Engelsk: Lav side 16 og 18 i den grå mappe - i afsnittet Animals. Jeg samler mapperne ind, så er der huller må de også laves. :-)","afleveringsdato":"\/Date(1674428400000-0000)\/","ugedag":"Mandag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjQ4NjM4NCUzZm9wZ2F2ZSUzZDA5NDM3ZjUzLTFiN2YtNGQzYy1iOTU5LTFlMWM1NDM5ZjhjNyUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1502991,"navn":"Engelsk 3C","fagId":1341,"fagNavn":"Engelsk"}],"unilogin":"neya0020","kuvertnavn":"Emilie Efternavnsen","placering":"Nederst"},{"id":"e08494a12d1e47688e9380df500242bc","opgaveType":"SimpelLektie","title":"Lektie:Dansk: Øv kapitel 8 - find 3 navneord, 3 udsagnsord og 3 tillægsord og skriv dem på det udleverede ark.","afleveringsdato":"\/Date(1674514800000-0000)\/","ugedag":"Tirsdag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjQ4NjM4NCUzZm9wZ2F2ZSUzZGUwODQ5NGExLTJkMWUtNDc2OC04ZTkzLTgwZGY1MDAyNDJiYyUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1502989,"navn":"Dansk 3C","fagId":1331,"fagNavn":"Dansk"}],"unilogin":"neya0020","kuvertnavn":"Emilie Efternavnsen","placering":"Nederst"},{"id":"179d640ee2ce4454909643f23581333a","opgaveType":"SimpelLektie","title":"LEKTIE: Engelsk: Øv side 35.","afleveringsdato":"\/Date(1674514800000-0000)\/","ugedag":"Tirsdag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjQ4NjM4NCUzZm9wZ2F2ZSUzZDE3OWQ2NDBlLWUyY2UtNDQ1NC05MDk2LTQzZjIzNTgxMzMzYSUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1502989,"navn":"Dansk 3C","fagId":1331,"fagNavn":"Dansk"}],"unilogin":"neya0020","kuvertnavn":"Emilie Efternavnsen","placering":"Nederst"},{"id":"6664e703516c46c6a83a51c4ba622d61","opgaveType":"SimpelLektie","title":"MÅ: Lav KREA til Pelle","afleveringsdato":"\/Date(1674514800000-0000)\/","ugedag":"Tirsdag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjQ4NjM4NCUzZm9wZ2F2ZSUzZDY2NjRlNzAzLTUxNmMtNDZjNi1hODNhLTUxYzRiYTYyMmQ2MSUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1502989,"navn":"Dansk 3C","fagId":1331,"fagNavn":"Dansk"}],"unilogin":"neya0020","kuvertnavn":"Emilie Efternavnsen","placering":"Nederst"},{"id":"41ef3a40791946879c90c71316393173","opgaveType":"SimpelLektie","title":"LEKTIE: Find 5 navneord, 5 udsagnsord og 5 tillægsord i Pelle-teksten - så der ialt er 8 ord af hver ordklasse. ","afleveringsdato":"\/Date(1674601200000-0000)\/","ugedag":"Onsdag","ugenummer":4,"erFaerdig":false,"url":"https://api.minuddannelse.net/aula/redirect/731004/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMjQ4NjM4NCUzZm9wZ2F2ZSUzZDQxZWYzYTQwLTc5MTktNDY4Ny05YzkwLWM3MTMxNjM5MzE3MyUyNnVnZSUzZDIwMjMtVzQ=","hold":[{"id":1502989,"navn":"Dansk 3C","fagId":1331,"fagNavn":"Dansk"}],"unilogin":"neya0020","kuvertnavn":"Emilie Efternavnsen","placering":"Nederst"}]}'
+            else:
+                muopgavertoken = self.get_token("0030")
+                muopgaver = requests.get(MIN_UDDANNELSE_API + muopgaverpayload, headers={"Authorization": muopgavertoken, "accept":"application/json"}, verify=True)
+                _LOGGER.debug("Got the following response from MU opgaver: "+str(muopgaver.text))
+            self.muopgaver_json = json.loads(muopgaver, strict=False)
+            days = ["Mandag","Tirsdag","Onsdag","Torsdag","Fredag"]
+            for fullname in self._childnames:
+                fornavn = self._childnames[fullname].split()[0]
+                #_LOGGER.debug("NAME "+fornavn)
+                for opgave in self.muopgaver_json["opgaver"]:
+                    #self.muopgaver_attr.setdefault(fornavn, "")
+                    if opgave["kuvertnavn"].split()[0] == fornavn:
+                        _LOGGER.debug("Found MU opgaver for "+fornavn+" :"+str(opgave))
+                    #for d in days:
+                    #    if opgave["ugedag"] == d:
+                    #        self.muopgaver_attr.setdefault(fornavn, d)
+                            #_LOGGER.debug("hhhhhhhhhhhhhhhhhhhhhhhhhhhh "+str(opgave["title"]))
+                    #day = opgave["ugedag"]
+                    #self.muopgaver_attr[day]
+                    #self.muopgaver_attr[fornavn]
+                    #_LOGGER.debug(str(opgave))
+                    #if opgave["kuvertnavn"].split()[0] == fornavn:
+                    #    self.muopgaver[fornavn] = 1
+                    #    break
+                    #    try:
+                    #        self.muopgaver_attr[fornavn][opgave["ugedag"]] += opgave["title"]
+                    #    except:
+                    #        self.muopgaver_attr[fornavn][opgave["ugedag"]] = opgave["title"]
+                        
+            _LOGGER.debug("self.muopgaver_attr: "+str(self.muopgaver_attr))
+            #_LOGGER.debug("self.muopgaver: "+str(self.muopgaver))
+            # self.ugep_attr[person["navn"].split()[0]] = ugeplan
 
         # Ugeplaner:
         if self._ugeplan == True:
